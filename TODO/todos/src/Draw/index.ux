@@ -1,0 +1,108 @@
+<template>
+    <div class="main-draw">
+        <div class="page-header">
+            <text class="text1">SmartTodo</text>
+        </div>
+        <div class="canvas-main">
+            <text class="text-draw">可视化:</text>
+            <canvas id="draw-canvas"></canvas>
+        </div>
+    </div>
+</template>
+
+<style lang="less">
+    .main-draw {
+        flex-direction: column;
+        background-image: url('../Common/back.png');
+    }
+
+    .page-header {
+    flex-direction: column;
+    }
+
+    .text1 {
+        line-height: 200px;
+        font-size: 80px;
+        color: #a0c3f0;
+        text-align: center;
+    }
+
+    .canvas-main {
+        flex-direction: column;
+    }
+
+    .text-draw {
+        line-height: 100px;
+        font-size: 40px;
+        color: #30dbb0;
+        text-align: left;
+        margin-left: 40px;
+    }
+
+    .canvas-main {
+        flex-direction: column;
+        #draw-canvas {
+            height: 350px;
+            width: 750px;
+        }
+    }
+
+</style>
+
+<script>
+export default {
+    protected: {
+        pushtodo : '',
+        pushdoing : '',
+        pushdone : ''
+    },
+
+    onInit() {
+      this.$page.setTitleBar({ text: '可视化' })
+    },
+
+    onShow() {
+      this.draw();
+    },
+
+    draw() {
+        let todo = parseInt(this.pushtodo)
+        let doing = parseInt(this.pushdoing)
+        let done = parseInt(this.pushdone)
+        let total = todo + doing + done
+        //各自的百分比
+        let percentList = [todo / total, doing / total, done / total]
+        //用来计算弧度的百分比
+        let circleList = [0, ...percentList]
+        for (let i = 0; i < 3; i++) circleList[i + 1] += circleList[i]
+        const canvas = this.$element('draw-canvas')
+        const ctx = canvas.getContext('2d')
+        const color = ['#473CB1', '#F1A942', '#A2EBD7']
+        for (let i = 0; i < percentList.length; i++) {
+        percentList[i] = (percentList[i] * 100).toFixed(0)
+        if (percentList[i].length == 1) percentList[i] = '  ' + percentList[i] //错个位使数据整齐
+        }
+        let textList = [`todo:  ${percentList[0]}%`, `doing:  ${percentList[1]}%`, `done:  ${percentList[2]}%`]
+        ctx.clearRect(0, 0, 750, 350)
+        ctx.lineWidth = 20
+        ctx.font = '30px'
+        for (let i = 0; i < 3; i++) {
+        //绘制圆弧
+        ctx.beginPath()
+        ctx.strokeStyle = color[i]
+        ctx.arc(220, 175, 120, Math.PI * 2 * circleList[i], Math.PI * 2 * circleList[i + 1])
+        ctx.stroke()
+        //绘制右侧圆点
+        ctx.beginPath()
+        ctx.fillStyle = color[i]
+        ctx.arc(450, 100 + 50 * i, 10, 0, 2 * Math.PI)
+        ctx.fill()
+        //绘制右侧数据
+        ctx.fillStyle = '#000000'
+        ctx.fillText(textList[i], 475, 100 + 50 * i + 6) // +2为字号修正
+        }
+    }
+
+}
+</script>
+

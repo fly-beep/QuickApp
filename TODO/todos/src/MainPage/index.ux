@@ -1,0 +1,239 @@
+<import name="page-main-item" src="../MainPage/page-main-item.ux"></import>
+
+<template>
+  <div class="page">
+    <div class="page-header">
+      <text class="text">SmartTodo</text>
+    </div>
+    <tabs class="tabs" onchange="changeacIndex" index="{{activeIndex}}">
+      <tab-bar class="tab-bar">
+        <text class="tab-text">TODO</text>
+        <text class="tab-text">DOING</text>
+        <text class="tab-text">DONE</text>
+      </tab-bar>
+
+      <tab-content class="tab-content">
+
+        <div>
+          <list>
+            <block for='{{todoList}}'>
+              <list-item type="item">
+                <page-main-item item='{{$item}}' idx='{{$idx}}' type='0'></page-main-item>
+              </list-item>
+            </block>
+          </list>
+        </div>
+
+        <div>
+          <list>
+            <block for='{{doingList}}'>
+              <list-item type="item">
+                <page-main-item item='{{$item}}' idx='{{$idx}}' type='1'></page-main-item>
+              </list-item>
+            </block>
+          </list>
+        </div>
+
+        <div>
+          <list>
+            <block for='{{doneList}}'>
+              <list-item type="item">
+                <page-main-item item='{{$item}}' idx='{{$idx}}' type='2'></page-main-item>
+              </list-item>
+            </block>
+          </list>
+        </div>
+      </tab-content>
+    </tabs>
+    <div>
+      <input class="btninp" type="button" value="添加" onclick="openInput('','没有开始时间','没有期限')">
+      <input class="btndraw" type="button" value="可视化" onclick="draw()">
+    </div>
+  </div>
+</template>
+
+<style>
+  .page {
+    flex-direction: column;
+    background-image: url('../Common/back.png');
+  }
+
+  .page-header {
+    flex-direction: column;
+  }
+
+  .text {
+    line-height: 200px;
+    font-size: 80px;
+    color: #a0c3f0;
+    text-align: center;
+  }
+
+  .tab {
+    background-color: #f5f5dc;
+  }
+
+  .tab-bar {
+      height: 100px;
+      width: 600px;
+      margin-left: 75px;
+      background-color: #ffffff;
+      border: 5px solid rgb(238, 240, 245);
+      border-radius: 20px;
+  }
+
+  .tab-text {
+    color: #011616;
+    text-align: center;
+    font-weight: bold;
+    font-size: 35px;
+  }
+
+  .btninp {
+    width: 200px;
+    background-color: #47afdf;
+    color: #7fffd4;
+    border-radius: 20px;
+    margin-bottom: 150px;
+    margin-left: 125px;
+    margin-right: 100px;
+  }
+
+  .btndraw {
+    width: 200px;
+    background-color: #47afdf;
+    color: #7fffd4;
+    border-radius: 20px;
+    margin-bottom: 150px;
+  }
+</style>
+
+<script>
+import storage from '@system.storage'
+import router from '@system.router'
+
+export default {
+  private: {
+    activeIndex: 1,
+    todoList: [
+      { name: '安空调', start: '2021-7-20 8:20', end: '2021-7-20 9:30' },
+      { name: '打豆豆', start: '2021-9-20 8:20', end: '2021-9-21 8:20'}
+    ],
+    doingList: [
+      { name: '吃饭', start: '2021-7-30 8:30', end: '2021-7-31 10:30' }
+    ],
+    doneList: [
+      { name: '睡觉', start: '2021-6-20 8:20', end: '2020-6-21 12:30' }
+    ]
+  },
+
+  onInit() {
+    // storage.clear() 
+    this.$page.setTitleBar({ text: 'todo App' })
+    //完成事件（并存储）
+    this.$on('doneItem', (evt) => {
+      if (evt.detail.type == 0) {
+        this.doneList.push(this.todoList[evt.detail.idx])
+        this.todoList.splice(evt.detail.idx, 1)
+      }
+      else {
+        this.doneList.push(this.doingList[evt.detail.idx])
+        this.doingList.splice(evt.detail.idx, 1)
+      }
+      this.saveLists()
+    })
+    //删除事件（并存储）
+    this.$on('delItem', (evt) => {
+      this.doneList.splice(evt.detail.idx, 1)
+      this.saveLists()
+    })
+  },
+  //每次显示页面时读取数据
+  onShow() {
+    let that = this
+    this.loadLists(function (data) {
+      if (data != '') {
+        let list = JSON.parse(data)
+        that.todoList = list.todoList
+        that.doingList = list.doingList
+        that.doneList = list.doneList
+        let nowDate = new Date()
+        if(that.todoList != null)
+        {
+          //遍历todoList,将其中已开始的（startTime小于当前时间的）任务归到doingList中
+          that.todoList.forEach(function (element, index) {
+          let arr = element.start.replace(/[:\-\\&]/g, ',').split(',')
+          let startDate = new Date(arr[0], arr[1] - 1, arr[2], arr[3], arr[4], 0, 0)
+          if (nowDate.getTime() > startDate.getTime()) {
+            that.doingList.push(that.todoList[index])
+            that.todoList.splice(index, 1)
+          }
+          })
+        }
+        //保存list修改
+        that.saveLists()
+      }
+    })
+  },
+
+  // 切换tab
+  changeacIndex(e) {
+    this.activeIndex = e.index
+  },
+
+  //切换至新建页面
+  openInput(name, start, end) {
+    this.saveLists(function () {
+      router.push({
+        uri: '/Input',
+        params: {
+          pushName: name,
+          pushStart: start,
+          pushEnd: end,
+          pushType: -1,
+          pushIdx: -1
+        }
+      })
+    })
+  },
+
+  //list需做备份时调用，需传入callback回调
+  saveLists(voidCallback = function () { }) {
+    let that = this
+    let list = { todoList: this.todoList, doingList: this.doingList, doneList: this.doneList }
+    storage.set({
+      key: 'msg',
+      value: list,
+      success: voidCallback(),
+      fail: function (data, code) {
+        that.$app.$def.makeToast(`handling fail, code = ${code}`)
+      }
+    })
+  },
+
+  //list需读取时调用，需传入callback回调
+  loadLists(dataCallback = function () { }) {
+    let that = this
+    storage.get({
+      key: 'msg',
+      success: function (data) {
+        dataCallback(data)
+      },
+      fail: function (data, code) {
+        that.$app.$def.makeToast(`handling fail, code = ${code}`)
+      }
+    })
+  },
+
+  draw() {
+    router.push({
+      uri: '/Draw',
+      params: {
+        pushtodo : this.todoList.length,
+        pushdoing : this.doingList.length,
+        pushdone : this.doneList.length
+      }
+    })
+  }
+}
+</script>

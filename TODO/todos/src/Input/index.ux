@@ -1,0 +1,307 @@
+<template>
+  <div class="input-page">
+    <div class="page-header">
+      <text class="text1">SmartTodo</text>
+    </div>
+    <div class='event-input'>
+      <input type="text" placeholder='请输入要做的事' value="{{eventName}}" onchange="updateValue"></input>
+    </div>
+    <!-- 输入开始时间 -->
+    <div class='time-area'>
+      <text>从:</text>
+      <div class='time-input'>
+        <picker class='date-picker' type="date" value="{{start_date}}" onchange="getStartDate"></picker>
+        <div class='date-image'></div>
+        <picker class='time-picker' type="time" value="{{start_time}}" onchange="getStartTime"></picker>
+        <div class='time-image'></div>
+      </div>
+    </div>
+    <!-- 输入结束时间 -->
+    <div class='time-area'>
+      <text>到:</text>
+      <div class='time-input'>
+        <picker class='date-picker' type="date" value="{{end_date}}" onchange="getEndDate"></picker>
+        <div class='date-image'></div>
+        <picker class='time-picker' type="time" value="{{end_time}}" onchange="getEndTime"></picker>
+        <div class='time-image'></div>
+      </div>
+    </div>
+    <div class="asr-btn {{scale}} {{enabled ? 'asr-btn-enabled' : 'asr-btn-disabled'}}" ontouchstart="startAsr" ontouchend="endAsr">
+      <div class='asr-image2'></div>
+      <input class="add-btn" type="button" value="完成" onclick="addEvent">
+    </div>
+  </div>
+</template>
+
+<style lang="less">
+  .input-page {
+    flex-direction: column;
+    background-image: url('../Common/back.png');
+  }
+
+  .page-header {
+    flex-direction: column;
+  }
+
+  .text1 {
+    line-height: 200px;
+    font-size: 80px;
+    color: #a0c3f0;
+    text-align: center;
+  }
+
+  .event-input {
+    height: 100px;
+    width: 90%;
+    border-radius: 20px;
+    border: 5px solid #ededed;
+    background-color: #f1f5f8;
+    flex-direction: row;
+    margin-left: 30px;
+  }
+
+  .add-btn {
+    width: 100px;
+    height: 100px;
+    font-size: 35px;
+    border-radius: 25px;
+    color: #ffffff;
+    background-color: #2a6faf;
+    align-self: flex-end;
+    margin-top: 100px;
+    margin-left: 100px;
+  }
+
+  .time-area {
+    flex-direction: row;
+    padding-top: 100px;
+    .time-input {
+      flex-direction: row;
+      height: 100px;
+      width: 500px;
+      border-radius: 20px;
+      margin-bottom: 10px;
+      background-color: #ffffff;
+      border: 3px solid rgb(238, 240, 245);
+      .date-picker {
+        width: 180px;
+        margin-left: 50px;
+        flex: 0;
+        font-family: myfont, serif;
+      }
+      .time-picker {
+        width: 100px;
+        margin-left: 10px;
+        flex: 0;
+        font-family: myfont, serif;
+      }
+      .date-image {
+        width: 40px;
+        height: 40px;
+        margin: 30px 25px 30px 5px;
+        border-width: 0px;
+        background-image: url("/Common/calendar.png");
+      }
+      .time-image {
+        width: 40px;
+        height: 40px;
+        margin: 30px 15px 30px 5px;
+        border-width: 0px;
+        background-image: url("/Common/time.png");
+      }
+    }
+    > text {
+      width: 120px;
+      font-size: 30px;
+      text-align: center;
+      font-family: myfont, serif;
+    }
+  }
+
+  .asr-image2 {
+    width: 100px;
+    height: 100px;
+    margin-top: 100px;
+    margin-left: 200px;
+    border-width: 0px;
+    border-radius: 20px;
+    background-image: url("/Common/asr.png");
+  }
+</style>
+
+<script>
+import asr from '@service.asr'
+import storage from '@system.storage'
+import vibrator from '@system.vibrator'
+import router from '@system.router'
+
+export default {
+  private: {
+    eventName: '',
+    nameBackUp: '',
+    start_date: '',
+    start_time: '',
+    end_date: '',
+    end_time: '',
+    scale: ''
+  },
+  
+  //修改任务时使用，新建时不使用
+  protected: {
+    pushName: '',
+    pushStart: '',
+    pushEnd: '',
+    pushType: '',
+    pushIdx: ''
+  },
+
+  onInit() {
+    this.$page.setTitleBar({ text: '增加任务' })
+    this.initAsr()
+    this.initTime()
+    this.eventName = this.pushName
+    if (this.pushStart != '没有开始时间') {
+      let list2 = this.pushStart.split(' ')
+      this.start_date = list2[0]
+      this.start_time = list2[1]
+    }
+    if (this.pushEnd != '没有期限') {
+      let list1 = this.pushEnd.split(' ')
+      this.end_date = list1[0]
+      this.end_time = list1[1]
+    }
+  },
+
+  onDestroy() {
+    asr.close()
+  },
+
+  //初始化picker显示内容（from为当前时间，to为一天后）
+  initTime() {
+    const date = new Date()
+    const Y = date.getFullYear()
+    const M = date.getMonth() + 1
+    const D = date.getDate()
+    const H = date.getHours()
+    const m = date.getMinutes()
+    this.start_date = Y + '-' + M + '-' + D
+    this.start_time = H + ':' + m
+    date.setTime(date.getTime() + 24 * 60 * 60 * 1000)
+    const TY = date.getFullYear()
+    const TM = date.getMonth() + 1
+    const TD = date.getDate()
+    const TH = date.getHours()
+    const Tm = date.getMinutes()
+    this.end_date = TY + '-' + TM + '-' + TD
+    this.end_time = TH + ':' + Tm
+  },
+
+  initAsr() {
+    let that = this
+    asr.init({
+      fail: function () {
+        that.$app.$def.makeToast('init failed!')
+      }
+    })
+    asr.onpartialresult = ({ result }) => {
+      this.eventName = this.nameBackUp + `${result}`
+    }
+    asr.oncompleteresult = ({ result }) => {
+      this.eventName = this.nameBackUp + `${result.match(/\[(.*)\]/)[1]}`
+    }
+    asr.onerror = (error) => {
+      this.text = `onerror: ${error}`
+    }
+  },
+  startAsr() {
+    let that = this
+    this.scale = 'scale'
+    this.nameBackUp = this.eventName
+    asr.start({
+      success: function () {
+        //多调用几遍使震动明显一些
+        vibrator.vibrate({ mode: 'short' })
+        vibrator.vibrate({ mode: 'short' })
+        vibrator.vibrate({ mode: 'short' })
+      },
+      fail: function (data, code) {
+        that.eventName = `start fail, code=${code}, data=${data}`
+      }
+    })
+  },
+  endAsr() {
+    let that = this
+    this.scale = 'stop'
+    asr.stop({
+      success: function () { },
+      fail: function (data, code) {
+        that.eventName = `stop fail, code=${code}, data=${data}`
+      }
+    })
+  },
+
+  updateValue(evt) {
+    this.eventName = evt.value
+  },
+
+  addEvent() {
+    if (this.eventName === '') {
+      this.$app.$def.makeToast('错误:任务名不能为空')
+    }
+    else {
+      let start = this.start_date + ' ' + this.start_time
+      let end = this.end_date + ' ' + this.end_time
+      let that = this
+      storage.get({
+        key: 'msg',
+        success: function (data) {
+          if (data != '') {
+            // string转数组
+            let list = JSON.parse(data)
+            // 修改事项时触发
+            if (that.pushType == 0) list.todoList.splice(that.pushIdx, 1)
+            else if (that.pushType == 1) list.doingList.splice(that.pushIdx, 1)
+            else if (that.pushType == 2) list.doneList.splice(that.pushIdx, 1)
+            // 判断todo/doing
+            let arr = start.replace(/[:\-\\ ]/g, ',').split(',')
+            let startDate = new Date(arr[0], arr[1] - 1, arr[2], arr[3], arr[4], 0, 0)
+            let nowDate = new Date()
+            if (nowDate.getTime() > startDate.getTime()) list.doingList.push({ name: that.eventName, start: start, end: end })
+            else list.todoList.push({ name: that.eventName, start: start, end: end })
+            // 保存list并返回
+            storage.set({
+              key: 'msg',
+              value: list,
+              success: function () {
+                that.eventName = ''
+                router.back()
+              },
+              fail: function (data, code) {
+                that.$app.$def.makeToast(`handling fail, code = ${code}`)
+              }
+            })
+          }
+        },
+        fail: function (data, code) {
+          that.$app.$def.makeToast(`handling fail, code = ${code}`)
+        }
+      })
+    }
+  },
+
+  //以下为picker组件的函数
+  getStartDate(e) {
+    this.start_date = e.year + '-' + (e.month + 1) + '-' + e.day
+  },
+  getStartTime(e) {
+    this.start_time = e.hour + ':' + e.minute
+  },
+  getEndDate(e) {
+    this.end_date = e.year + '-' + (e.month + 1) + '-' + e.day
+  },
+  getEndTime(e) {
+    this.end_time = e.hour + ':' + e.minute
+  }
+}
+</script>
+
